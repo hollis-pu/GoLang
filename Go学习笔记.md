@@ -1413,6 +1413,42 @@ func main() {
 
 总的来说，`fmt.Scan()`、`fmt.Scanln()` 和 `fmt.Scanf()` 都提供了不同的方式来读取用户输入。你可以根据具体的需求选择适合的函数。
 
+> 2023.09.04补
+>
+> 如果想要一行读取多个数据，但又不知道数据的个数时，可以采用下面的方式：
+>
+> ```go
+> package main
+> 
+> import (
+> 	"bufio"
+> 	"fmt"
+> 	"os"
+> 	"reflect"
+> 	"strings"
+> )
+> 
+> func main() {
+> 
+> 	// 创建一个Scanner对象，用于从标准输入读取数据
+> 	scanner := bufio.NewScanner(os.Stdin)
+> 
+> 	// 读取一行数据
+> 	scanner.Scan()
+> 	lineStr := scanner.Text()
+> 	nums := strings.Split(lineStr, " ")  // 返回分割之后的字符串切片
+> 	fmt.Println("numStr:", nums)
+> 	fmt.Println("type of numStr:", reflect.TypeOf(nums))
+> }
+> ```
+> 比如输入：12 23 34
+> 输出结果：
+>
+> ```
+> numStr: [12 23 34]      
+> type of numStr: []string
+> ```
+
 ### 进制和位移
 
 #### 进制的说明
@@ -3327,7 +3363,7 @@ func bubbleSort(arr *[10]int) {
 
 #### 2.快排序法(Quick sort)
 
-目前还没学，后面学习数据结构与算法的时候再补上。
+目前还没学，后面学习数据结构与算法的时候再补上。（2023.08.31补）
 
 下面是Chatgpt给出的示例：
 
@@ -4626,3 +4662,1052 @@ func main() {
 请注意，当进行类型断言时，一定要使用基本形式的类型断言，并检查第二个返回值（`ok`），以避免类型断言失败导致的 panic。类型分支形式只能在 `switch` 语句中使用，并且只能在接口类型上进行匹配。
 
 目前学习到第227集。
+
+## 文件操作
+
+2023.09.07
+
+文件在程序中是以**流**的形式来操作的。
+流：数据在数据源(文件)和程序(内存)之间经历的路径。
+输入流：数据从数据源(文件)到程序(内存)的路径。（读文件）
+输出流：数据从程序(内存)到数据源(文件)的路径。（写文件）
+
+在Go语言中，你可以使用标准库中的`os`包来进行文件操作。`os`包提供了许多与文件系统交互的函数和类型。
+
+`os.File` 封装所有文件相关操作，`File`是一个结构体。
+
+以下是一些常见的文件操作示例：
+
+### 1.创建文件并写入内容
+
+```go
+package main  
+  
+import (  
+ "fmt"  
+ "os"  
+)  
+  
+func main() {  
+ // 创建文件  
+ file, err := os.Create("example.txt")  
+ if err != nil {  
+ fmt.Println("创建文件失败:", err)  
+ return  
+ }  
+ defer file.Close()  
+  
+ // 写入内容  
+ content := "Hello, World!"  
+ _, err = file.WriteString(content)  
+ if err != nil {  
+ fmt.Println("写入文件失败:", err)  
+ return  
+ }  
+  
+ fmt.Println("文件写入成功")  
+}
+```
+
+> `os.Create()`函数在创建文件时，默认在当前工作目录下创建。当前工作目录可以通过`os.Getwd()`函数获取。默认的工作目录为当前项目的路径，而不是当前包的路径。
+>
+> ```go
+> workPath, _ := os.Getwd()
+> fmt.Println(workPath)  // E:\code\golang\Go_FirstProject
+> ```
+如果你想在特定的路径下创建文件，你需要提供完整的路径，例如os.Create("E:\path\file.txt")。
+
+### 2.读取文件内容
+
+```go
+package main  
+  
+import (  
+ "fmt"  
+ "os"  
+)  
+  
+func main() {  
+ // 打开文件  
+ file, err := os.Open("example.txt")  
+ if err != nil {  
+ fmt.Println("打开文件失败:", err)  
+ return  
+ }  
+ defer file.Close()  
+  
+ // 读取内容  
+ buffer := make([]byte, 1024)  
+ for {  
+ n, err := file.Read(buffer)  
+ if err != nil && err.Error() != "EOF" {  
+ fmt.Println("读取文件失败:", err)  
+ break  
+ }  
+ if n == 0 {  
+ break  
+ }  
+ fmt.Print(string(buffer[:n]))  
+ }  
+}
+```
+
+> 带缓冲的文件读取：可以读一部分，处理一部分。这样就可以处理一些比较大的文件。
+>
+> ```go
+> file01, err := os.Open("open_file_case.txt")
+> if err != nil {
+>  fmt.Println("文件打开失败：", err)
+> }
+> defer file01.Close()
+> 
+> reader := bufio.NewReader(file01)
+> 	// 循环读取文件内容
+> 	for {
+> 		str, err := reader.ReadString('\n')
+> 		if err == io.EOF { //  io.EOF表示文件的末尾，注意当读取到最后一行时，就会返回err，但是最后一行的数据需要再下面输出。
+> 			fmt.Print(str)
+> 			break
+> 		}
+> 		fmt.Print(str)
+> 	}
+> 	fmt.Println()
+> 	fmt.Print("文件读取结束！")
+> ```
+> 一次性读取全部文件内容：使用`os.ReadFile()`一次将整个文件读入到内存中。
+>
+> ```go
+> content, err := os.ReadFile("open_file_case.txt")
+> fmt.Println(string(content))
+> ```
+
+**OpenFile()函数的使用**
+
+在Go语言中，`os.OpenFile()`函数用于打开文件，并且提供了很多选项，允许你控制文件的打开方式、权限和行为。下面是`os.OpenFile()`函数的参数详细介绍：
+
+```go
+func OpenFile(name string, flag int, perm FileMode) (*File, error)
+```
+
+1. `name`（字符串）：表示要打开或创建的文件的路径，可以是绝对路径或相对路径。如果文件不存在并且使用了`os.O_CREATE`标志，那么会创建该文件。
+
+2. `flag`（整数）：是一个位掩码，用于指定文件的打开方式和行为。可以使用以下常量和它们的组合：
+
+   - `os.O_RDONLY`：只读打开文件。
+   - `os.O_WRONLY`：只写打开文件。
+   - `os.O_RDWR`：读写打开文件。
+   - `os.O_APPEND`：在文件末尾追加数据。
+   - `os.O_CREATE`：如果文件不存在，则创建文件。
+   - `os.O_TRUNC`：如果文件存在，截断文件为零长度。
+   - `os.O_EXCL`：与`os.O_CREATE`一起使用，要求文件必须不存在。
+   - `os.O_SYNC`：以同步方式写入文件，确保数据写入磁盘。
+   - `os.O_NONBLOCK`：以非阻塞方式打开文件。
+
+3. `perm`（`FileMode`类型）：指定文件的权限，仅在创建文件时有效。权限可以使用八进制表示，例如`0666`表示读写权限。通常使用`os.FileMode`常量来设置文件权限，如`os.ModePerm`表示完全权限。
+
+函数返回一个指向打开文件的`*File`指针和一个可能的错误。你应该检查错误以确保文件已成功打开。
+
+下面是一个示例，演示了如何使用不同的参数来打开文件：
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func main() {
+	filePath := "example.txt"
+
+	// 只读打开文件
+	file1, err := os.OpenFile(filePath, os.O_RDONLY, 0)
+	if err != nil {
+		fmt.Println("无法打开文件:", err)
+		return
+	}
+	defer file1.Close()
+
+	// 读写打开文件并创建（如果不存在）
+	file2, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		fmt.Println("无法打开文件:", err)
+		return
+	}
+	defer file2.Close()
+
+	// 在这里可以对文件进行读写操作
+
+	fmt.Println("文件已打开:", filePath)
+}
+```
+
+请根据你的需求选择合适的标志和权限来使用`os.OpenFile()`函数。
+
+### 3.删除文件
+
+```go
+package main  
+  
+import (  
+ "fmt"  
+ "os"  
+)  
+  
+func main() {  
+ // 删除文件  
+ err := os.Remove("example.txt")  
+ if err != nil {  
+ fmt.Println("删除文件失败:", err)  
+ return  
+ }  
+ fmt.Println("文件删除成功")  
+}
+```
+
+### 4.检查文件是否存在
+
+```go
+package main  
+  
+import (  
+ "fmt"  
+ "os"  
+)  
+  
+func main() {  
+ // 检查文件是否存在  
+ _, err := os.Stat("example.txt")  
+ if os.IsNotExist(err) {  
+ fmt.Println("文件不存在")  
+ } else {  
+ fmt.Println("文件存在")  
+ }  
+}
+```
+
+这些示例展示了Go语言中一些基本的文件操作。你可以使用`os`包中的其他函数和方法进行更复杂的文件操作，例如获取文件信息、重命名文件、截断文件等。请参考`os`包的文档以获取更多详细信息：https://golang.org/pkg/os/
+
+### 5.命令行参数
+
+在Go语言中，你可以使用`os`包来获取命令行参数。
+
+**方式1：`os.Args`的方式**
+
+以下是一个简单的示例，演示如何在Go中获取命令行参数：
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func main() {
+	// 使用os.Args来获取命令行参数，os.Args[0]是程序的名称
+	fmt.Println("程序名称:", os.Args[0])
+
+	// os.Args[1:] 包含所有的命令行参数，不包括程序名称
+	fmt.Println("命令行参数:", os.Args[1:])
+
+	// 可以通过索引访问特定的命令行参数
+	if len(os.Args) > 1 {
+		fmt.Println("第一个命令行参数:", os.Args[1])
+	}
+}
+```
+
+在上面的示例中，`os.Args`是一个字符串切片，包含了所有的命令行参数，其中`os.Args[0]`是程序的名称。你可以通过索引访问特定的命令行参数，如`os.Args[1]`访问第一个命令行参数。
+
+使用上述代码，你可以运行你的Go程序并向其传递命令行参数。例如，如果你的Go程序的名称是`myprogram`，你可以通过以下方式运行它并传递参数：
+
+```
+$ go run myprogram.go arg1 arg2 arg3
+```
+
+程序将输出如下：
+
+```
+程序名称: myprogram
+命令行参数: [arg1 arg2 arg3]
+第一个命令行参数: arg1
+```
+
+通过这种方式，你可以轻松地获取和处理命令行参数。
+
+**方式2：`flag`包解析命令行参数**
+
+在Go语言中，可以使用标准库中的`flag`包来解析和处理命令行参数。`flag`包使命令行参数的处理变得非常简单。以下是一个示例，演示如何使用`flag`包解析命令行参数：
+
+```go
+package main
+
+import (
+	"flag"
+	"fmt"
+)
+
+func main() {
+	// 声明命令行参数
+	var (
+		name    string
+		age     int
+		verbose bool
+	)
+
+	// 使用flag包创建命令行参数，传递变量的指针以便将值存储在变量中
+	flag.StringVar(&name, "name", "Guest", "设置名称")
+	flag.IntVar(&age, "age", 0, "设置年龄")
+	flag.BoolVar(&verbose, "verbose", false, "启用详细输出")
+
+	// 解析命令行参数
+	flag.Parse()
+
+	// 打印解析后的参数值
+	fmt.Println("名称:", name)
+	fmt.Println("年龄:", age)
+	fmt.Println("详细输出:", verbose)
+}
+```
+
+在上面的示例中，我们使用`flag.StringVar`、`flag.IntVar`和`flag.BoolVar`函数来创建命令行参数。这些函数需要传递一个变量的指针以便将解析后的值存储在相应的变量中。第一个参数是用于标识命令行参数的名称，第二个参数是默认值，第三个参数是参数的描述。
+
+然后，我们调用`flag.Parse()`来解析命令行参数。在这之后，你可以通过访问相应的变量来获取解析后的参数值。
+
+使用上述代码，你可以运行你的Go程序并传递命令行参数。例如：
+
+```
+$ go run myprogram.go -name Alice -age 30 -verbose
+```
+
+程序将解析这些参数并输出：
+
+```
+名称: Alice
+年龄: 30
+详细输出: true
+```
+
+`flag`包还提供了其他一些功能，如处理布尔型的标志、默认值等，以满足不同的需求。这使得处理命令行参数变得非常灵活和方便。
+
+目前学习到第254集。
+
+## Json
+
+2023.09.07
+
+### Json的介绍
+
+JSON，全称JavaScript Object Notation，是一种轻量级的数据交换格式，易于人阅读和编写，同时也易于机器解析和生成。它是基于JavaScript原生格式，因此在JavaScript中处理JSON数据不需要任何特殊的API或工具包。
+
+在JSON中，数据的表现形式包括三种类型：
+
+1. 对象：由一组键值对（key/value）构成，使用大括号（{}）括起来，各个键值对之间用逗号（,）分隔。如：`{"name":"John", "age":30}`。
+2. 数组：由一组有序的元素构成，使用方括号（[]）括起来。如：`["apple", "banana", "orange"]`。
+3. 值：可以是数字（整数或浮点数）、字符串（在双引号（"）中）、布尔值（true 或 false）、null、对象或者数组。
+
+例如，下面这个JSON对象表示一个名为"John"的人，年龄为30，喜欢的水果为"apple"，"banana"和"orange"。
+
+```json
+{  
+  "name": "John",  
+  "age": 30,  
+  "fruits": ["apple", "banana", "orange"]  
+}
+```
+
+JSON数据的解析也很简单。例如，你可以使用JavaScript的`JSON.parse`函数将JSON格式的字符串转换成JSON对象。如：
+
+```javascript
+var str = '{"name":"小强","age":16,"msg":["a","b"],"regex":"^http://.*"}';  
+var json = JSON.parse(str);  
+console.log("name:" + json.name);  // 输出 "name:小强"  
+console.log("msgLen:" + json.msg.length);  // 输出 "msgLen:2"
+```
+
+在以上代码中，`JSON.parse`函数将JSON格式的字符串`str`转换成了一个JSON对象`json`，然后我们可以通过访问该对象的属性来获取我们需要的信息。
+
+### Go中使用Json
+
+在Go语言中使用JSON非常简单和方便。以下是一些在Go中使用JSON的常见操作：
+
+1. **编码JSON**：将Go结构体转换为JSON字符串
+
+```go
+package main  
+  
+import (  
+ "encoding/json"  
+ "fmt"  
+)  
+  
+type Person struct {  
+ Name  string `json:"name"`  
+ Age   int    `json:"age"`  
+ Email string `json:"email"`  
+}  
+  
+func main() {  
+ person := Person{"John", 30, "john@example.com"}  
+ jsonData, err := json.Marshal(person)  
+ if err != nil {  
+ fmt.Println("Error encoding JSON:", err)  
+ return  
+ }  
+ fmt.Println(string(jsonData))  
+}
+```
+
+在上面的示例中，我们定义了一个`Person`结构体，并使用`json`标签来指定JSON中对应的字段名。然后，我们创建一个`Person`实例，并使用`json.Marshal`函数将其转换为JSON字符串。最后，我们使用`fmt.Println`打印JSON字符串。
+
+2. **解码JSON**：将JSON字符串转换为Go结构体
+
+```go
+package main  
+  
+import (  
+ "encoding/json"  
+ "fmt"  
+)  
+  
+type Person struct {  
+ Name  string `json:"name"`  
+ Age   int    `json:"age"`  
+ Email string `json:"email"`  
+}  
+  
+func main() {  
+ jsonData := []byte(`{"name":"John","age":30,"email":"john@example.com"}`)  
+ var person Person  
+ err := json.Unmarshal(jsonData, &person)  
+ if err != nil {  
+ fmt.Println("Error decoding JSON:", err)  
+ return  
+ }  
+ fmt.Println("Name:", person.Name)  
+ fmt.Println("Age:", person.Age)  
+ fmt.Println("Email:", person.Email)  
+}
+```
+
+在上面的示例中，我们定义了一个`Person`结构体，并使用`json`标签来指定JSON中对应的字段名。然后，我们创建一个包含JSON数据的字节切片`jsonData`，并使用`json.Unmarshal`函数将其转换为`Person`实例。最后，我们访问解析后的字段并打印它们。
+
+这只是Go语言中使用JSON的基本示例。你还可以使用其他库来执行更复杂的JSON操作，如验证、自定义编码/解码器等。希望这可以帮助你入门在Go中使用JSON！
+
+## 单元测试
+
+Go语言的单元测试是Go语言中非常重要的一部分，它有助于确保你的代码在各种情况下都能正确运行。在Go中，单元测试通常使用Go的标准测试框架来编写和运行。
+
+testing 提供对 Go 包的自动化测试的支持。通过 `go test` 命令，能够自动执行如下形式的任何函数：
+
+```
+func TestXxx(*testing.T)
+```
+
+其中 Xxx 可以是任何字母数字字符串（但第一个字母不能是 [a-z]），用于识别测试例程。
+
+以下是如何编写和运行Go语言单元测试的详细步骤：
+
+1. **创建测试文件**：
+   首先，你需要在与要测试的Go源代码文件相同的目录中创建一个新的文件，并以 `_test.go` 为文件名后缀。例如，如果你要测试一个名为 `mypackage.go` 的文件，你应该创建一个名为 `mypackage_test.go` 的测试文件。
+
+2. **导入测试框架**：
+   在测试文件的顶部，导入 Go 的测试框架 `testing` 和要测试的包。例如：
+
+   ```go
+   package mypackage
+   
+   import (
+       "testing"
+   )
+   ```
+
+3. **编写测试函数**：
+   在测试文件中，你需要编写以 `Test` 为前缀的测试函数。测试函数的签名应该是 `func TestXxx(t *testing.T)`，其中 `Xxx` 是你要测试的函数或方法的名字。测试函数的参数是一个指向 `testing.T` 结构的指针，用于报告测试失败和日志记录等。
+
+   > 注意： `Xxx` 的第一个字母必须是大写的，不能小写。
+
+   例如，如果你要测试 `Add` 函数，测试函数的代码可能如下所示：
+
+   ```go
+   func TestAdd(t *testing.T) {
+       result := Add(2, 3)
+       expected := 5
+       if result != expected {
+           t.Errorf("Expected %d, but got %d", expected, result)
+       }
+   }
+   ```
+
+4. **运行测试**：
+   打开终端，进入包含测试文件的目录，并运行以下命令来执行测试：
+
+   ```shell
+   go test
+   ```
+
+   Go将会查找以 `_test.go` 结尾的文件并运行其中的测试函数。它会输出测试结果，包括通过的测试用例和失败的测试用例。如果所有测试都通过，将显示 `ok`。
+
+5. **可选的测试标记**：
+   你可以在运行测试时使用一些标记来控制测试的行为。例如，`-v` 标记会显示详细的测试信息，`-run` 标记允许你只运行匹配特定正则表达式的测试函数，等等。
+
+   ```shell
+   go test -v
+   go test -run TestAdd
+   ```
+
+6. **子测试**：
+   Go的测试框架还支持子测试，这使得可以在一个测试函数中包含多个测试用例。要使用子测试，你可以使用 `t.Run` 方法。以下是一个示例：
+
+   ```go
+   func TestMyFunction(t *testing.T) {
+       t.Run("Case1", func(t *testing.T) {
+           // 测试用例1的代码
+       })
+   
+       t.Run("Case2", func(t *testing.T) {
+           // 测试用例2的代码
+       })
+   }
+   ```
+
+总结：
+
+> 1. 测试用例文件名必须以` _test.go` 结尾。 比如 `cal_test.go`，`cal` 不是固定的。
+>
+> 2. 测试用例函数必须以`Test`开头，一般来说就是Test+被测试的函数名，比如`TestAddUpper`。
+>
+> 3. `TestAddUppert(t *tesing.T)` 的形参类型必须是 `*testing.T`。
+>
+> 4. 一个测试用例文件中，可以有多个测试用例函数，比如 `TestAddUpper`、`TestSub`。
+>
+> 5. 运行测试用例指令
+>    (1) cmd> go test [如果运行正确，无日志，错误时，会输出日志]
+>
+>    (2) cmd> go test-v [运行正确或是错误，都输出日志]
+>
+> 6. 当出现错误时，可以使用 `t.Fatalf`来格式化输出错误信息，并退出程序。
+>
+> 7. `t.Logf` 方法可以输出相应的日志。
+>
+> 8. 测试用例函数，并没有放在`main`函数中，也执行了，这就是测试用例的方便之处。
+>
+> 9. `PASS`表示测试用例运行成功，`FAIL `表示测试用例运行失败。
+>
+> 10. 测试单个文件，一定要带上被测试的原文件：`go test -v test.go cal.go`
+>
+>     > 直接在命令行中使用`go test`，会执行当前包下面所有以`_test.go`结尾的单元测试文件。
+>
+> 11. 测试单个方法：`go test -v -test.run TestAddUpper`
+
+## goroutine
+
+### 简单示例
+
+在Go语言中，`go`关键字用于启动一个新的`Goroutine`。`Goroutine`是Go语言中的轻量级线程，由Go运行时环境（Goroutine Scheduler）进行调度。通过使用`go`关键字，开发者可以创建并发执行的代码块，实现并发编程和任务并发。
+
+下面是一个使用`go`关键字启动Goroutine的简单示例：
+
+请编写一个程序，完成如下功能:
+
+1) 在主线程(可以理解成进程)中，开启一个`goroutine`该协程每隔 0.5 秒输出`"goroutine:hello,world"`；
+2) 在主线程中也每隔 0.5 秒输出`"main:hello,golang"`输出 10 次后，退出程序；
+3) 要求主线程和 `goroutine` 同时执行。
+
+```go
+package main
+
+import (
+    "fmt"
+    "time"
+)
+
+func test() {
+    for i := 0; i < 10; i++ {
+       fmt.Println("goroutine:hello,golang")
+       time.Sleep(time.Millisecond * 500)
+    }
+}
+
+func main() {
+    start := time.Now().UnixMilli()
+    go test() // 开启了一个协程
+
+    for i := 0; i < 10; i++ {
+       fmt.Println("main:hello,golang")
+       time.Sleep(time.Millisecond * 500)
+    }
+    end := time.Now().UnixMilli()
+    fmt.Println("程序耗时(ms)：", end-start) // 未加协程前：10101ms  加上协程后：5050ms
+}
+```
+
+上面代码的输出中，`main:hello,golang`和`goroutine:hello,golang`是交替打印的，说明`test()`函数和`main()`函数是同时执行的，而不是先执行`test()`函数，再执行`main()`函数。
+
+**协程执行示意图**：
+
+<img src="Go学习笔记.assets/image-20230908154817398.png" alt="image-20230908154817398" style="zoom:66%;" />
+
+备注：
+
+> - 主线程是一个物理线程，直接作用在cpu上的。是重量级的，非常耗费cpu资源。
+> - 协程从主线程开启的，是轻量级的线程，是逻辑态。对资源消耗相对小。
+> - Golang的协程机制是重要的特点，可以轻松的开启上万个协程。其它编程语言的并发机制是一般基于线程的，开启过多的线程，资源耗费大，这里就突显Golang在并发上的优势了。
+
+### MPG模式
+
+在Go语言中，MPG模式通常是指Go语言的调度器（scheduler）的工作方式，其中MPG代表以下三个关键组件：
+
+1. **M** - Machine（机器）：M代表操作系统的线程，也称为"机器"。每个M都关联着一个内核线程（kernel thread），负责执行Go程序中的goroutines。M的数量可以在运行时动态增加或减少，以适应系统的负载。M的主要工作是将goroutines调度到处理器上执行，并管理这些goroutines的生命周期。
+
+2. **P** - Processor（处理器）：P代表处理器，是Go语言中的一种逻辑实体，它代表了一个可以执行goroutines的抽象处理器。P的数量由GOMAXPROCS环境变量或`runtime.GOMAXPROCS`函数设置，通常与物理CPU核心数量相关。P的主要任务是调度M来执行goroutines，并管理goroutines的运行队列。
+
+3. **G** - Goroutine（goroutine）：G代表goroutine，是Go语言的轻量级并发单位。每个G代表一个独立的任务或函数，可以并发执行。Go调度器将G分配给P上的M来执行，并负责管理goroutines的创建、销毁和阻塞等操作。
+
+MPG模式的核心思想是通过将goroutines分配给M来实现并发执行，而P则负责管理M，并确保它们能够有效地运行goroutines。这种模式使得Go语言能够高效地利用多核处理器，并自动处理goroutine的调度和线程管理，让开发者可以专注于业务逻辑而不用过多关注底层的并发细节。
+
+总结来说，MPG模式是Go语言调度器的核心组成部分，它通过M、P、G的协同工作实现了高效的并发执行，是Go语言并发性能的关键之一。
+
+<img src="Go学习笔记.assets/image-20230908161225873.png" alt="image-20230908161225873" style="zoom: 50%;" />
+
+<img src="Go学习笔记.assets/image-20230908161317874.png" alt="image-20230908161317874" style="zoom:50%;" />
+
+### 设置CPU数
+
+在Go语言中，你可以使用`runtime.GOMAXPROCS`函数来设置程序运行的CPU核心数量。这个函数允许你控制调度器分配给你的Go程序的处理器数量（P的数量），从而影响并行度。
+
+例如，如果你想将程序限制为在单个CPU核心上运行，你可以将`runtime.GOMAXPROCS`设置为1。如果你想充分利用多核CPU，可以将其设置为大于1的值，通常建议设置为等于CPU核心数的值，以最大程度地利用可用的硬件资源。
+
+以下是一个示例，展示如何在Go中设置运行的CPU数：
+
+```go
+package main
+
+import (
+	"fmt"
+	"runtime"
+)
+
+func main() {
+	numCPU := runtime.NumCPU() // 获取可用的CPU核心数
+	fmt.Printf("可用的CPU核心数：%d\n", numCPU)
+
+	// 设置程序运行的CPU核心数
+	desiredCPU := 4 // 你可以根据需要设置不同的值
+	runtime.GOMAXPROCS(desiredCPU)
+
+	// 确认设置后的CPU核心数
+	currentCPU := runtime.GOMAXPROCS(0)
+	fmt.Printf("当前程序运行的CPU核心数：%d\n", currentCPU)
+}
+```
+
+注意，`runtime.GOMAXPROCS`的参数为0时，它会返回当前的CPU核心数，而不会修改设置。因此，在上面的示例中，我们首先获取了可用的CPU核心数，然后设置了期望的CPU核心数，并最后确认了当前的设置。你可以根据需要将`desiredCPU`设置为你想要的值。
+
+注：
+
+> go1.8后，默认让程序运行在多个核上，可以不用设置了。
+> go1.8前，还是要设置一下，可以更高效的利益cpu。
+
+## channel
+
+### 同步互斥锁
+
+Go语言中的同步互斥锁通常使用`sync`包中的`Mutex`类型来实现。互斥锁用于保护多个goroutine对共享资源的并发访问，以确保一次只有一个goroutine可以访问共享资源，从而防止数据竞争和不一致性。
+
+以下是在Go语言中如何使用互斥锁：
+
+1. 导入`sync`包：
+
+```go
+import "sync"
+```
+
+2. 创建一个互斥锁：
+
+```go
+var mutex sync.Mutex
+```
+
+3. 在需要保护共享资源的地方，使用`Lock`方法来获取锁，使用`Unlock`方法来释放锁。一旦一个goroutine获取了锁，其他goroutine将被阻塞，直到锁被释放。
+
+```go
+mutex.Lock()
+// 访问共享资源的代码
+mutex.Unlock()
+```
+
+下面是一个完整的示例，演示了如何在Go中使用互斥锁来控制资源竞争的变量：
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+var (
+	myMap02 = make(map[int]int, 10)
+	lock    sync.Mutex // 全局的互斥锁
+)
+
+func main() {
+	for i := 1; i <= 200; i++ {
+		go test02(i)
+	}
+
+	time.Sleep(time.Second * 5) // 这里休眠5秒钟，防止主线程先于协程结束
+
+	lock.Lock() // 读取数据前也要加锁
+	for i, v := range myMap02 {
+		fmt.Printf("map[%d]=%d\n", i, v)
+	}
+	lock.Unlock()
+}
+func test02(n int) {
+	res := 0
+	for i := 1; i <= n; i++ {
+		res += i
+	}
+	// 解决资源竞争的问题
+	// 用之前加锁
+	lock.Lock()
+	myMap02[n] = res
+	// 用完之后解锁
+	lock.Unlock()
+}
+```
+
+> 这段代码主要演示了如何使用互斥锁（Mutex）来在并发环境中安全地更新一个共享的全局map。以下是代码的逐行解释：
+>
+> 1. 定义了一个全局的map `myMap02`，该map的键和值都是整数类型，初始容量为10。
+> 2. 定义了一个全局的互斥锁 `lock`，用于保证对共享资源的互斥访问。
+> 3. 在 `main` 函数中，通过一个循环创建了200个协程，每个协程都执行 `test02` 函数。
+> 4. 在 `main` 函数中，使用 `time.Sleep` 函数让主线程休眠5秒钟，以确保所有协程有足够的时间执行完毕。
+> 5. 在主线程休眠结束后，使用互斥锁对 `myMap02` 进行加锁，然后遍历并打印map中的所有键值对。
+> 6. `test02` 函数是一个被200个协程并发执行的函数。每个协程会计算从1到n的整数之和，并将结果存储到全局map `myMap02` 中。
+> 7. 在 `test02` 函数中，使用互斥锁对全局map进行加锁，以确保在同一时刻只有一个协程可以更新map。协程计算完结果后，解锁互斥锁。
+>
+> 这段代码展示了在Go语言中如何使用互斥锁来解决并发访问共享资源时的竞态条件问题。通过加锁和解锁操作，可以确保在任何时刻只有一个协程可以访问或修改共享资源，从而避免数据竞争和不一致的结果。
+
+请注意，在实际应用中，你需要仔细考虑锁的粒度以避免过多的锁竞争，以及使用更高级的同步机制，如通道，来避免死锁和提高代码的可维护性。
+
+### 管道的基本介绍
+
+**为什么需要channel？**
+
+前面使用全局变量加锁同步来解决`goroutine`的通讯，但不完美：
+
+1. 主线程在等待所有`goroutine`全部完成的时间很难确定，我们这里设置10秒，仅仅是估算。
+2. 如果主线程休眠时间长了，会加长等待时间，如果等待时间短了，可能还有`goroutine`处于工作状态，这时也会随主线程的退出而销毁。
+3. 通过全局变量加锁同步来实现通讯，也并不利于多个协程对全局变量的读写操作。
+
+上面种种分析都在呼唤一个新的通讯机制——`channel`。
+
+**channel的介绍**
+
+在Go语言中，管道（Channel）是一种用于在不同goroutine之间传递数据和同步操作的基本机制。管道可以用来解决并发编程中的共享内存和同步问题，它提供了一种安全、简单和高效的方式来实现goroutine之间的通信。
+
+`channel`的特点：
+
+- `channel` 本质就是一个数据结构——队列。
+
+- 数据是先进先出 [FIFO : first in first out]。
+- 线程安全，多`goroutine`访问时，不需要加锁，就是说`channel`本身就是线程安全的。
+- `channel`是有类型的，一个`string`的`channel`只能存放`string`类型数据。
+
+下面是管道的一些重要概念和用法：
+
+1. 创建管道：
+   使用内置的`make`函数来创建一个管道，语法如下：
+   ```go
+   ch := make(chan Type)
+   ```
+   这里的`Type`是你希望在管道中传递的数据类型。
+
+2. 发送数据到管道：
+   使用`<-`操作符来将数据发送到管道中，例如：
+
+   ```go
+   ch <- data
+   ```
+   这会将`data`发送到管道`ch`中。
+
+3. 从管道接收数据：
+   使用`<-`操作符来从管道中接收数据，例如：
+   ```go
+   data := <-ch
+   ```
+   这会从管道`ch`中接收数据，并将其存储在`data`变量中。
+
+4. 关闭管道：
+   使用`close`函数来关闭一个管道，表示不再向管道发送数据。一旦管道关闭，再向其发送数据会引发panic，但可以继续从管道中接收数据。关闭管道是一种通知接收者不再有数据发送的方式。
+
+   > 可读不可写。
+
+下面是一个简单的示例，演示了如何在两个goroutine之间使用管道传递数据：
+
+```go
+package main
+
+import (
+    "fmt"
+    "sync"
+)
+
+func main() {
+    // 创建一个整数类型的管道
+    ch := make(chan int)
+
+    var wg sync.WaitGroup
+    wg.Add(2)
+
+    // 第一个goroutine向管道发送数据
+    go func() {
+        defer wg.Done()
+        ch <- 42
+    }()
+
+    // 第二个goroutine从管道接收数据
+    go func() {
+        defer wg.Done()
+        data := <-ch
+        fmt.Println("Received:", data)
+    }()
+
+    // 等待两个goroutine完成
+    wg.Wait()
+
+    // 关闭管道
+    close(ch)
+}
+```
+
+在这个示例中，两个goroutine之间通过管道传递了整数数据，并且使用`sync.WaitGroup`等待它们的完成。管道确保了数据的安全传递和同步，使得两个goroutine可以协调工作而不会发生竞态条件。
+
+**注意事项**
+
+> - channel中只能存放指定的数据类型。
+> - channle的数据放满后，就不能再放入了。
+> - 如果从channel取出数据后，可以继续放入。
+> - 在没有使用协程的情况下，如果channel数据取完了，再取，就会报dead lock。
+> - 可以使用`any`来向管道中存入任何类型的数据。
+
+### 读写channel的案例
+
+下面这段代码的输出会是什么？
+
+```go
+package main
+
+import (
+    "fmt"
+    "reflect"
+)
+
+type Person struct {
+    name string
+    age  int
+}
+
+func main() {
+    var allChan chan any
+    allChan = make(chan any, 10)
+
+    p1 := Person{"Tom", 10}
+    p2 := Person{"Jerry", 13}
+
+    allChan <- p1
+    allChan <- p2
+    allChan <- 10
+    allChan <- "jack"
+
+    p1Data := <-allChan
+    fmt.Println("p1Data的类型", reflect.TypeOf(p1Data)) // ？
+    fmt.Println("p1Data.name:", p1Data.name)  // ？
+}
+```
+
+解析：
+
+> 首先，`p1Data`的类型为：`Person`。
+>
+> 其次，虽然`p1Data`的类型为`Person`，但是也不能直接使用`p1Data.name`来访问其`name`属性的值。报错：`p1Data.name undefined (type any has no field or method name)`
+>
+> > 前面能获取到`p1Data`的类型是在运行的层面，能够获取到。
+> > 但是后面`p1Data.name`是在编译层面报错，编译器认为`any` 类型的数据不能有属性或方法，所以会编译报错。
+>
+> 所以在获取`name`之前应该使用类型断言，将`p1Data`转换成`Person`类型：（让编译器知道其类型为Person）
+>
+> ```go
+> person1 := p1Data.(Person)
+> fmt.Println("person1.name:", person1.name) // person1.name: Tom
+> ```
+
+### 遍历管道
+
+在Go语言中，遍历管道需要使用`for`循环结构，通常会使用`range`关键字来迭代管道中的元素。以下是如何遍历管道的示例：
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	// 创建一个字符串类型的管道
+	ch := make(chan string)
+
+	// 启动一个goroutine向管道发送数据
+	go func() {
+		defer close(ch) // 关闭管道，通知接收者没有更多数据
+		for i := 0; i < 5; i++ {
+			ch <- fmt.Sprintf("Message %d", i)
+			time.Sleep(time.Second)
+		}
+	}()
+
+	// 使用range遍历管道中的数据
+	for msg := range ch {
+		fmt.Println(msg)
+	}
+}
+```
+
+在上面的示例中，我们创建了一个字符串类型的管道，并在一个单独的goroutine中向管道发送了5个消息。接着，在主goroutine中使用`range`来遍历管道中的数据，直到管道关闭。**`range`会自动在管道关闭后退出循环，这是一个常见的模式，用于遍历管道中的所有元素。**
+
+在实际应用中，你可以根据需要进行不同类型的管道遍历，处理接收到的数据，这可以用于多个goroutine之间的协作和数据传递。
+
+请注意两个细节：
+
+> - 在遍历时，如果`channel`没有关闭，则会出现`deadlock`的错误。
+> - 在遍历时，如果`channel`已经关闭，则会正常遍历数据，遍历完后，就会退出遍历。
+
+补充：
+
+> 在遍历管道时，确保注意以下几个重要细节，以确保正确的行为和避免潜在的问题：
+>
+> 1. 关闭管道：
+>    在遍历完管道的所有元素后，务必关闭管道。关闭管道是一种通知接收方没有更多数据的方式，它也会使`range`循环退出。如果不关闭管道，`range`循环将会一直等待，从而可能导致程序陷入死锁状态。
+>
+> 2. 协程的协同：
+>    如果数据的发送和接收是在不同的协程中进行的，确保在适当的时机关闭管道，以便通知接收方数据已发送完毕。使用`sync.WaitGroup`等方式来等待所有协程完成，然后再关闭管道。
+>
+> 3. 避免数据竞争：
+>    如果多个协程访问同一个管道，确保通过适当的同步机制（例如互斥锁或`select`语句）来避免数据竞争。同时要注意在协程间传递数据时，确保数据的读取和写入是安全的。
+>
+> 4. 管道的缓冲：
+>    确保了解管道的缓冲情况。无缓冲管道会导致发送和接收操作同步进行，而缓冲管道允许一定数量的元素在发送后不立即被接收。这可能会影响遍历的行为，因此需要根据需求选择适当的管道类型。
+>
+> 5. 通道关闭的时机：
+>    关闭管道的时机非常重要。通常，应该由数据的发送方来关闭管道，以便通知接收方数据已发送完毕。关闭管道后，接收方可以继续从管道中接收剩余的数据。
+>
+> 下面是一个示例，演示了如何正确地遍历管道并处理这些细节：
+>
+> ```go
+> package main
+> 
+> import (
+> 	"fmt"
+> 	"sync"
+> )
+> 
+> func main() {
+> 	ch := make(chan int)
+> 
+> 	// 启动一个协程向管道发送数据
+> 	go func() {
+> 		defer close(ch)
+> 		for i := 1; i <= 5; i++ {
+> 			ch <- i
+> 		}
+> 	}()
+> 
+> 	var wg sync.WaitGroup
+> 	wg.Add(1)
+> 
+> 	// 启动一个协程遍历并接收管道中的数据
+> 	go func() {
+> 		defer wg.Done()
+> 		for value := range ch {
+> 			fmt.Println("Received:", value)
+> 		}
+> 	}()
+> 
+> 	// 等待所有协程完成
+> 	wg.Wait()
+> }
+> ```
+>
+> 在这个示例中，我们确保在合适的时机关闭了管道，使用`sync.WaitGroup`等待了协程的完成，并使用`range`遍历管道中的数据，以确保正确的并发行为和数据同步。
+
+### goroutine和channel协同的案例
+
+**应用实例1**
+
+请完成`goroutine`和`channel`协同工作的案例，具体要求：
+
+1. 开启一个`writeData`协程，向管道`intChan`中写入50个整数。
+2. 开启一个`readData`协程，从管道`intChan`中读取`writeData`写入的数据。
+3. 注意: `writeData`和`readDate`操作的是同一个管道。
+4. 主线程需要等待`writeData`和`readDate`协程都完成工作才能退出。
+
+```go
+package main
+
+import (
+    "fmt"
+    "time"
+)
+
+func main() {
+    var (
+       intChan  = make(chan int, 50)
+       boolChan = make(chan bool, 1)
+    )
+
+    go writeData(intChan)
+    go readDate(intChan, boolChan)
+
+    for {  // 这个for循环的作用是为了防止主线程先于前面的两个协程退出。
+       _, ok := <-boolChan
+       if !ok {
+          break
+       }
+    }
+}
+
+func writeData(intChan chan int) {
+    for i := 0; i < 50; i++ {
+       intChan <- i
+       fmt.Printf("写入数据 %d 成功!\n", i)
+       time.Sleep(time.Millisecond * 100)
+    }
+    close(intChan)
+}
+
+func readDate(intChan chan int, boolChan chan bool) {
+    for i := 0; i < 50; i++ {
+       num, ok := <-intChan
+       if !ok {
+          break
+       }
+       fmt.Printf("读取数据 %d 成功！\n", num)
+    }
+    boolChan <- true
+    close(boolChan)
+}
+```
+
+
+
+
+
+
+
+目前学习到第274集。
