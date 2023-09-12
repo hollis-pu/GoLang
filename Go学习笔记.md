@@ -6785,6 +6785,12 @@ Redis (REmote DIctionary Server) 是一个开源的高性能键值对存储数�
 
 ### 常用命令
 
+可参考：[Redis 教程 菜鸟教程](https://www.runoob.com/redis/redis-tutorial.html)
+
+[Redis.cn Redis命令中心](http://redis.cn/commands.html)
+
+[Redis常用命令手册](http://c.biancheng.net/redis_command/)
+
 Redis提供了丰富的命令集，用于存储、检索和操作数据。以下是一些常用的Redis命令：
 
 **键操作**：
@@ -7032,3 +7038,206 @@ Redis是一个开源的使用ANSI C编写、支持网络、可基于内存亦可
 注意，Redis的命令不区分大小写，但是通常我们会使用大写的形式。另外，Redis的命令在执行成功时返回1，失败时返回0。
 
 目前学习到第308集。
+
+### Go-Redis库
+
+2023.09.12
+
+#### 常用操作
+
+（由于韩顺平老师课程里面讲解的Redis库和现在主流的Redis库有所不同，所以开始学习另外一个视频：[【码神之路】go-redis教程，十年大厂程序员讲解，通俗易懂（共1小时06分）](https://www.bilibili.com/video/BV1FY411d7JF)）
+
+在Go语言中，可以使用`redis`包来进行Redis数据库的操作。以下是一个尽可能详细和完整的示例，演示了如何使用`redis`包进行基本的Redis操作。
+
+在Go语言中，与Redis交互的常见操作通常使用第三方Redis客户端库来完成，其中最常用的库之一是`github.com/redis/go-redis`，通常简称为`go-redis`。以下是一些常见的Redis操作示例，使用了`go-redis`库中的相应方法：
+
+首先，你需要在Go代码中导入`go-redis`库：
+
+```go
+import (
+    "github.com/redis/go-redis/v9"
+    "context"
+)
+```
+
+然后，创建一个Redis客户端连接：
+
+```go
+client := redis.NewClient(&redis.Options{
+    Addr:     "localhost:6379", // Redis服务器地址
+    Password: "",              // Redis密码，如果没有密码可以留空
+    DB:       0,               // 默认的数据库
+})
+```
+
+接下来，可以执行常见的Redis操作：
+
+1. **设置字符串值**：
+
+```go
+err := client.Set(context.Background(), "myKey", "myValue", 0).Err()
+if err != nil {
+    panic(err)
+}
+```
+
+2. **获取字符串值**：
+
+```go
+value, err := client.Get(context.Background(), "myKey").Result()
+if err != nil {
+    panic(err)
+}
+fmt.Println("Value:", value)
+```
+
+3. **设置哈希值**：
+
+```go
+err := client.HSet(context.Background(), "myHash", "field1", "value1").Err()
+if err != nil {
+    panic(err)
+}
+```
+
+4. **获取哈希值**：
+
+```go
+value, err := client.HGet(context.Background(), "myHash", "field1").Result()
+if err != nil {
+    panic(err)
+}
+fmt.Println("Value:", value)
+```
+
+5. **将值添加到列表**：
+
+```go
+err := client.LPush(context.Background(), "myList", "item1", "item2").Err()
+if err != nil {
+    panic(err)
+}
+```
+
+6. **获取列表元素**：
+
+```go
+elements, err := client.LRange(context.Background(), "myList", 0, -1).Result()
+if err != nil {
+    panic(err)
+}
+fmt.Println("Elements:", elements)
+```
+
+7. **添加元素到集合**：
+
+```go
+err := client.SAdd(context.Background(), "mySet", "member1", "member2").Err()
+if err != nil {
+    panic(err)
+}
+```
+
+8. **获取集合中的所有元素**：
+
+```go
+members, err := client.SMembers(context.Background(), "mySet").Result()
+if err != nil {
+    panic(err)
+}
+fmt.Println("Members:", members)
+```
+
+9. **有序集合操作**：
+
+```go
+// 添加元素到有序集合
+err := client.ZAdd(context.Background(), "myZSet", &redis.Z{Score: 1.0, Member: "member1"}).Err()
+if err != nil {
+    panic(err)
+}
+
+// 获取有序集合中的元素
+members, err := client.ZRange(context.Background(), "myZSet", 0, -1).Result()
+if err != nil {
+    panic(err)
+}
+fmt.Println("Members:", members)
+```
+
+10. **删除键**：
+
+```go
+err := client.Del(context.Background(), "myKey").Err()
+if err != nil {
+    panic(err)
+}
+```
+
+这些示例演示了如何在Go中使用`go-redis`库执行常见的Redis操作。请注意，这些示例假定你已经正确安装并配置了Redis服务器，并且已经导入了所需的包。根据你的需求和具体的应用程序，你可以进一步探索`go-redis`库的文档以了解更多功能和选项。
+
+详细的请参考代码： [01_common_commands](..\..\..\code\golang\Go_FirstProject\first_package\src\22_redis\01_common_commands) 
+
+#### 发布-订阅模式
+
+在Go语言中使用Redis的发布-订阅（Pub/Sub）模式可以实现消息发布和订阅功能，允许多个客户端之间进行实时消息传递。下面是如何在Go中使用`github.com/redis/go-redis/v9`库实现Redis的发布-订阅模式的示例：
+
+首先，确保你已经导入了`go-redis`库，并创建了Redis客户端连接：
+
+```go
+import (
+    "github.com/redis/go-redis/v9"
+    "context"
+    "fmt"
+)
+
+func main() {
+    // 创建Redis客户端连接
+    client := redis.NewClient(&redis.Options{
+        Addr:     "localhost:6379", // Redis服务器地址
+        Password: "",              // Redis密码，如果没有密码可以留空
+        DB:       0,               // 默认的数据库
+    })
+
+    // 创建一个上下文
+    ctx := context.Background()
+
+    // 订阅频道
+    pubsub := client.Subscribe(ctx, "mychannel")
+
+    // 检查订阅错误
+    _, err := pubsub.Receive(ctx)
+    if err != nil {
+        panic(err)
+    }
+
+    // 创建一个用于接收消息的通道
+    msgChan := pubsub.Channel()
+
+    // 启动一个goroutine来处理接收到的消息
+    go func() {
+        for msg := range msgChan {
+            fmt.Printf("Received message: %s\n", msg.Payload)
+        }
+    }()
+
+    // 发布消息到频道
+    err = client.Publish(ctx, "mychannel", "Hello, World!").Err()
+    if err != nil {
+        panic(err)
+    }
+
+    // 让程序运行一段时间以接收消息
+    // 在实际应用中，你可能需要使用更复杂的逻辑来处理消息
+    // 这里简单示范了消息的发布和订阅过程
+    select {}
+}
+```
+
+在上述示例中，我们首先创建了一个Redis客户端连接，然后使用`Subscribe`方法订阅了一个名为"mychannel"的频道。接着，我们创建了一个用于接收消息的通道（`msgChan`），并启动一个goroutine来异步处理接收到的消息。
+
+最后，我们使用`Publish`方法向"mychannel"频道发布一条消息。你可以在程序中发布多条消息，所有订阅了该频道的客户端都会接收到这些消息。
+
+请注意，在实际应用中，你需要根据需要处理接收到的消息，并确保在退出程序之前关闭订阅（例如使用`Unsubscribe`方法）以释放资源。此外，你还可以使用多个订阅频道，以实现更复杂的消息处理逻辑。
+
+目前学习到第313集。
